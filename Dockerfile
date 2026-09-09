@@ -41,27 +41,6 @@ RUN chmod +x /home/coder/entrypoint.sh /usr/local/bin/sync-db && \
 USER coder
 WORKDIR /home/coder/project
 
-# Pre-install all user-requested extensions
-RUN for ext in \
-    vscjava.vscode-java-pack \
-    redhat.java \
-    vscjava.vscode-java-debug \
-    vscjava.vscode-java-test \
-    vscjava.vscode-maven \
-    vscjava.vscode-java-dependency \
-    vmware.vscode-spring-boot-extension-pack \
-    vscjava.vscode-spring-initializr \
-    vmware.vscode-spring-boot \
-    formulahendry.code-runner \
-    ritwickdey.liveserver; do \
-        echo "Installing $ext..." && \
-        code-server --install-extension "$ext" || echo "Notice: $ext will be verified on container startup"; \
-    done
-
-# Configure default VS Code User Settings for Java and Code Runner
-RUN mkdir -p /home/coder/.local/share/code-server/User && \
-    echo '{\n  "java.jdt.ls.java.home": "/usr/lib/jvm/default-java",\n  "java.configuration.runtimes": [\n    {\n      "name": "JavaSE",\n      "path": "/usr/lib/jvm/default-java",\n      "default": true\n    }\n  ],\n  "code-runner.executorMap": {\n    "java": "cd $dir && javac $fileName && java $fileNameWithoutExt"\n  },\n  "code-runner.clearPreviousOutput": true,\n  "code-runner.runInTerminal": true\n}' > /home/coder/.local/share/code-server/User/settings.json
-
 # Add starter Java Hello World program
 RUN mkdir -p /home/coder/project/src && \
     echo 'public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello from VS Code + Java on Render!");\n        System.out.println("Java version: " + System.getProperty("java.version"));\n    }\n}' > /home/coder/project/src/Main.java && \

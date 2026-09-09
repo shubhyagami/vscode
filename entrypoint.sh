@@ -32,32 +32,6 @@ fi
 echo "🚀 Launching Database Sync Daemon..."
 node /home/coder/sync-daemon.js &
 
-# Ensure all default extensions are present
-(
-  sleep 4
-  echo "🔍 Verifying default extensions are active..."
-  DEFAULT_EXTS=(
-    "vscjava.vscode-java-pack"
-    "redhat.java"
-    "vscjava.vscode-java-debug"
-    "vscjava.vscode-java-test"
-    "vscjava.vscode-maven"
-    "vscjava.vscode-java-dependency"
-    "vmware.vscode-spring-boot-extension-pack"
-    "vscjava.vscode-spring-initializr"
-    "vmware.vscode-spring-boot"
-    "formulahendry.code-runner"
-    "ritwickdey.liveserver"
-  )
-  for ext in "${DEFAULT_EXTS[@]}"; do
-    if ! code-server --list-extensions 2>/dev/null | grep -qi "$ext"; then
-      echo "📦 Installing missing extension: $ext..."
-      code-server --install-extension "$ext" >/dev/null 2>&1 || true
-    fi
-  done
-  echo "✓ All default extensions verified!"
-) &
-
 # Start Code-Server
 echo "🌐 Starting Code-Server on 0.0.0.0:$PORT..."
 exec code-server \
