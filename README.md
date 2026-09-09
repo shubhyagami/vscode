@@ -7,7 +7,19 @@ This is the **authentic, full-featured Visual Studio Code** running in the cloud
 ## 🌟 Features
 
 - 🖥️ **Original VS Code Experience**: Real VS Code interface, full settings, keybindings, and extension marketplace.
-- ☕ **Complete Java 17 Development Environment**: Pre-installed `openjdk-17-jdk` and `maven`. Compile and run Java code directly in the integrated terminal with `javac` and `java`.
+- 🧩 **11 Default Pre-Installed Extensions**:
+  - **Extension Pack for Java** (`vscjava.vscode-java-pack`)
+  - **Language Support for Java(TM) by Red Hat** (`redhat.java`)
+  - **Debugger for Java** (`vscjava.vscode-java-debug`)
+  - **Test Runner for Java** (`vscjava.vscode-java-test`)
+  - **Maven for Java** (`vscjava.vscode-maven`)
+  - **Project Manager for Java** (`vscjava.vscode-java-dependency`)
+  - **Spring Boot Tools** (`vmware.vscode-spring-boot`)
+  - **Spring Boot Extension Pack** (`vmware.vscode-spring-boot-extension-pack`)
+  - **Spring Initializr Java Support** (`vscjava.vscode-spring-initializr`)
+  - **Code Runner** (`formulahendry.code-runner`)
+  - **Live Server** (`ritwickdey.liveserver`)
+- ☕ **Complete Java 17 Development Environment**: Pre-installed `default-jdk` (OpenJDK) and `maven`. Compile and run Java code directly in the integrated terminal with `javac` and `java`.
 - 💾 **Automatic Database Persistence**: An integrated background daemon (`sync-daemon.js`) watches your workspace and automatically synchronizes all saves, creations, and deletions to your database public link.
 - 🛠️ **CLI Sync Tool**: Built-in terminal command `sync-db` (`sync-db status`, `sync-db pull`, `sync-db push`).
 - ☁️ **Render-Ready Dockerfile**: Automatically binds to Render's dynamic `$PORT`, disables telemetry, and tunes JVM memory flags (`-XX:MaxRAMPercentage=70.0`) to avoid OOM crashes on Render.
