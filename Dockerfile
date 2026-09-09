@@ -10,18 +10,19 @@ USER root
 # Avoid interactive apt prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Java 17 JDK, Maven, Git, Node.js, and essential build utilities
+# Install Java JDK, Maven, Git, Node.js, and essential build utilities
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openjdk-17-jdk \
+    default-jdk \
     maven \
     curl \
     git \
     jq \
+    nodejs \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Configure Java Environment
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV JAVA_HOME=/usr/lib/jvm/default-java
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 # Prevent Java from crashing Render containers due to memory limits
