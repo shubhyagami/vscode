@@ -1,0 +1,20 @@
+# ==============================================================================
+# Render Blueprint Configuration (render.yaml)
+# Deploy full Code-Server with Java & Database Persistence to Render
+# ==============================================================================
+services:
+  - type: web
+    name: vscode-java-server
+    env: docker
+    plan: starter # Starter ($7/mo with 512MB-1GB RAM) recommended for Java + Code-Server, or 'free'
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_PUBLIC_URL
+        sync: false # Set your public database link here in Render dashboard
+      - key: DATABASE_API_KEY
+        sync: false # Optional API key / Bearer token
+      - key: PASSWORD
+        sync: false # Optional: Set a password to protect your VS Code instance
+      - key: WORKSPACE_DIR
+        value: /home/coder/project

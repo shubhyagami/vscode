@@ -1,0 +1,56 @@
+#!/bin/bash
+# ==============================================================================
+# Helper CLI for Database Sync inside Code-Server terminal
+# Usage: sync-db [status|pull|push]
+# ==============================================================================
+
+ACTION="${1:-status}"
+WORKSPACE="${WORKSPACE_DIR:-/home/coder/project}"
+URL="${DATABASE_PUBLIC_URL}"
+
+case "$ACTION" in
+  status)
+    echo "=========================================="
+    echo "⚡ Code-Server Database Sync Status"
+    echo "=========================================="
+    echo "Workspace: $WORKSPACE"
+    if [ -z "$URL" ]; then
+      echo "Database:  NOT CONFIGURED (Running locally)"
+      echo "Tip: Set DATABASE_PUBLIC_URL in Render environment variables."
+    else
+      echo "Database:  $URL"
+      echo -n "Ping:      "
+      curl -s -o /dev/null -w "%{http_code} (%{time_total}s)\n" --max-time 5 "$URL" 2>/dev/null || echo "Unreachable"
+    fi
+    echo "=========================================="
+    ;;
+  pull)
+    echo "📥 Pulling latest files from database into $WORKSPACE..."
+    node -e 'require("/home/coder/sync-daemon.js").pullFromDatabase().then(() => console.log("Done!"))'
+    ;;
+  push)
+    echo "📤 Pushing all workspace files to database..."
+    node -e '
+      const fs = require("fs");
+      const path = require("path");
+      const daemon = require("/home/coder/sync-daemon.js");
+      const root = process.env.WORKSPACE_DIR || "/home/coder/project";
+      function walk(dir) {
+        for (const f of fs.readdirSync(dir)) {
+          const full = path.join(dir, f);
+          if (f === ".git" || f === "node_modules" || f === "target") continue;
+          if (fs.statSync(full).isDirectory()) walk(full);
+          else {
+            const rel = path.relative(root, full);
+            daemon.pushFile(rel);
+          }
+        }
+      }
+      walk(root);
+      console.log("Sync push initiated!");
+    '
+    ;;
+  *)
+    echo "Usage: sync-db [status|pull|push]"
+    ;;
+esac
