@@ -25,7 +25,7 @@ git init
 git add .
 git commit -m "Deploy Code-Server with Java and Database Sync"
 git branch -M main
-git remote add origin https://github.com/<your-github-username>/<your-repo-name>.git
+git remote add origin thisRepo
 git push -u origin main
 ```
 
