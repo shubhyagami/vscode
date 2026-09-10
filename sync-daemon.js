@@ -16,15 +16,21 @@ const DB_KEY = process.env.DATABASE_API_KEY || '';
 const IGNORED_PATTERNS = [
   '.git',
   '.vscode',
+  '.local',
+  '.config',
   'node_modules',
   'target',
   '.class',
   '.DS_Store',
-  '*.tmp'
+  '*.tmp',
+  '*.swp',
+  '*.lock'
 ];
 
 function isIgnored(filePath) {
   const rel = path.relative(WORKSPACE_DIR, filePath);
+  if (!rel || rel === '.' || rel === '..') return true;
+
   for (const pattern of IGNORED_PATTERNS) {
     if (pattern.startsWith('*.')) {
       const ext = pattern.slice(1);
@@ -103,15 +109,16 @@ async function pullFromDatabase() {
         for (const f of res.data) {
           if (f.path) fileMap[f.path] = f.content || '';
         }
-      } else if (res.data.files) {
+      } else if (res.data && res.data.files) {
         fileMap = res.data.files;
-      } else if (typeof res.data === 'object') {
+      } else if (typeof res.data === 'object' && res.data !== null) {
         fileMap = res.data;
       }
 
       let count = 0;
       for (const [relPath, fileObj] of Object.entries(fileMap)) {
-        const content = typeof fileObj === 'string' ? fileObj : (fileObj.content ?? '');
+        if (!relPath || typeof relPath !== 'string') continue;
+        const content = typeof fileObj === 'string' ? fileObj : (fileObj?.content ?? '');
         const targetPath = path.join(WORKSPACE_DIR, relPath);
         fs.mkdirSync(path.dirname(targetPath), { recursive: true });
         fs.writeFileSync(targetPath, content, 'utf8');
@@ -130,9 +137,16 @@ async function pullFromDatabase() {
  * Push a single modified file to database
  */
 const pendingSaves = new Map();
+const pendingDeletes = new Map();
 
 function queuePushFile(relPath) {
   if (!DB_URL || isIgnored(path.join(WORKSPACE_DIR, relPath))) return;
+
+  // Cancel any pending delete for this file
+  if (pendingDeletes.has(relPath)) {
+    clearTimeout(pendingDeletes.get(relPath));
+    pendingDeletes.delete(relPath);
+  }
 
   if (pendingSaves.has(relPath)) {
     clearTimeout(pendingSaves.get(relPath));
@@ -145,6 +159,31 @@ function queuePushFile(relPath) {
   }, 1500);
 
   pendingSaves.set(relPath, timer);
+}
+
+function queueDeleteFile(relPath) {
+  if (!DB_URL || isIgnored(path.join(WORKSPACE_DIR, relPath))) return;
+
+  // Cancel any pending save
+  if (pendingSaves.has(relPath)) {
+    clearTimeout(pendingSaves.get(relPath));
+    pendingSaves.delete(relPath);
+  }
+
+  if (pendingDeletes.has(relPath)) {
+    clearTimeout(pendingDeletes.get(relPath));
+  }
+
+  // Debounce deletes by 2.5 seconds to prevent race conditions during atomic saves/renames
+  const timer = setTimeout(async () => {
+    pendingDeletes.delete(relPath);
+    const fullPath = path.join(WORKSPACE_DIR, relPath);
+    if (!fs.existsSync(fullPath)) {
+      await deleteFileFromDb(relPath);
+    }
+  }, 2500);
+
+  pendingDeletes.set(relPath, timer);
 }
 
 async function pushFile(relPath) {
@@ -190,25 +229,66 @@ async function deleteFileFromDb(relPath) {
 }
 
 /**
- * Watch directory recursively for changes
+ * Watch directory recursively for changes in a cross-platform manner
  */
-function startWatcher() {
-  console.log(`[SyncDaemon] Watching workspace: ${WORKSPACE_DIR}`);
+const watchedDirs = new Set();
+
+function watchDirectory(dir) {
+  if (watchedDirs.has(dir) || isIgnored(dir)) return;
+  watchedDirs.add(dir);
 
   try {
-    fs.watch(WORKSPACE_DIR, { recursive: true }, (eventType, filename) => {
-      if (!filename || isIgnored(path.join(WORKSPACE_DIR, filename))) return;
+    const watcher = fs.watch(dir, { persistent: false }, (eventType, filename) => {
+      if (!filename) return;
+      const fullPath = path.join(dir, filename);
+      const relPath = path.relative(WORKSPACE_DIR, fullPath);
 
-      const fullPath = path.join(WORKSPACE_DIR, filename);
-      if (fs.existsSync(fullPath)) {
-        queuePushFile(filename);
-      } else {
-        deleteFileFromDb(filename);
+      if (isIgnored(fullPath)) return;
+
+      try {
+        if (fs.existsSync(fullPath)) {
+          const stat = fs.statSync(fullPath);
+          if (stat.isDirectory()) {
+            watchDirectory(fullPath);
+          } else {
+            queuePushFile(relPath);
+          }
+        } else {
+          queueDeleteFile(relPath);
+        }
+      } catch {
+        // File may be ephemeral or inaccessible during write
       }
     });
+
+    watcher.on('error', () => {});
   } catch (err) {
-    console.error('[SyncDaemon] Watch error:', err.message);
+    // Suppress individual watch errors for temporary dirs
   }
+
+  // Recursively watch existing subdirectories
+  try {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const sub = path.join(dir, entry.name);
+        if (!isIgnored(sub)) {
+          watchDirectory(sub);
+        }
+      }
+    }
+  } catch {
+    // Ignore read errors
+  }
+}
+
+function startWatcher() {
+  if (!fs.existsSync(WORKSPACE_DIR)) {
+    fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
+  }
+
+  console.log(`[SyncDaemon] Watching workspace: ${WORKSPACE_DIR}`);
+  watchDirectory(WORKSPACE_DIR);
 }
 
 async function main() {
@@ -222,7 +302,11 @@ async function main() {
   await pullFromDatabase();
 
   // 2. Start live file watcher
-  startWatcher();
+  if (DB_URL) {
+    startWatcher();
+  } else {
+    console.log('[SyncDaemon] Watcher inactive (DATABASE_PUBLIC_URL not provided).');
+  }
 }
 
 // Handle exports for CLI tool or standalone run
